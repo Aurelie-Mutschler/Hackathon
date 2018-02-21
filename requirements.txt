@@ -1,0 +1,8 @@
+psycopg2==2.7.3.2
+pandas==0.22.0
+matplotlib==2.1.2
+plotnine==0.3.0
+termcolor==1.1.0
+numpy==1.14.0
+ipython==6.2.1
+scikit_learn==0.19.1
