@@ -27,6 +27,8 @@ psql -U postgres -d mimic -a -f rrt.sql
 ### Dependencies
 - The source code is written in Python 3.
 - The python packages can be installed with pip : `pip3 install -R requirements.txt`
+- To use Keras models, first install tensorflow : https://www.tensorflow.org/install/
+- WARNING : XGBoost installation with pip is currently disabled for Windows. Instructions for Windows users : https://xgboost.readthedocs.io/en/latest/build.html
 
 ## Usage
 ### Make_dataset.ipynb 
