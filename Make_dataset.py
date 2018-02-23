@@ -1,6 +1,10 @@
 
 # coding: utf-8
 
+# # Build the dataset from the SQL database and dump it into a CSV file
+
+# ## 0. Useful imports
+
 # In[1]:
 
 
@@ -18,6 +22,8 @@ get_ipython().run_line_magic('matplotlib', 'inline')
 plt.style.use('ggplot')
 
 
+# ## 1. Connection to postgresql
+
 # In[2]:
 
 
@@ -33,6 +39,11 @@ con = psycopg2.connect(dbname=dbname, user=sqluser)
 query_schema = 'set search_path to ' + schema_name + ';'
 
 
+# ## 2. Utils functions
+# The function below allows to apply the inclusion criteria after the SQL query is done :
+# - The dataframe df obtained from the SQL query, contains some columns that are named "inclusion_...". These are boolean variables that take value `True` if the patient matches the criteria and should be included in the dataset.
+# - This function drops patients with any "inclusion\_..." set to `False` and then drops all the "inclusion\_..." variables because these are not useful features for the prediction
+
 # In[3]:
 
 
@@ -47,7 +58,9 @@ def apply_inclusion_criteria(df):
     return df
 
 
-# # Load file with features to be found in chartevents table
+# ## 3. Load file features_info.csv describing features to be found in chartevents table
+# - This table describes the list of item_id that should be used to retrieve a given variable in the chartevents table
+# - The list of item_id has been derived from the [d_items table](https://mimic.physionet.org/mimictables/d_items/)
 
 # In[4]:
 
@@ -60,7 +73,13 @@ features_info = features_info.dropna(axis=0, how='all', subset=item_col).reset_i
 features_info.head()
 
 
-# # Retrieve interesting features for patients that match inclusion criteria
+# ## 4. Retrieve interesting features for patients that match inclusion criteria
+# Exclusion criteria : 
+# - Patients with age < 15 years
+# - Patients who stayed less than 48 hours in the ICU
+# - Patients under renal replacement therapy
+# - Patients suffering from ESDR
+# - Patients that had a kidney transplant
 
 # In[5]:
 
@@ -316,9 +335,12 @@ df_chartevents.to_csv('creatinine_measurements_1.csv')
 df_chartevents.head()
 
 
-# # Retrieve missing static information
-
-# ## !!!! Add missing inclusion criteria here
+# ## 5. Retrieve missing static information
+# On top of the variables from chartevents table, retrieve following static information that may have an impact on the quality of the predictions :
+# - Reason of stay (i.e. diagnosis at entrance)
+# - Ethnicity
+# - Age
+# - Gender
 
 # In[7]:
 
@@ -403,7 +425,8 @@ df_static.to_csv('creatinine_measurements_2.csv')
 print(df_static)
 
 
-# # Merge tables into one
+# ## 6. Merge df_chartevents and df_static tables into one
+# Create one unique dataframe holding the static and dynamic features
 
 # In[9]:
 
@@ -425,7 +448,8 @@ merged_df = pd.merge(df_chartevents,df_static,on=['subject_id', 'icustay_id', 'i
        'creatinine_time', 'age', 'length_of_stay', 'rrt', 'diagnoses'],how='outer')
 
 
-# # Remove columns that are not features (except icustay_id and patient_id that are needed to build the table with labels)
+# ## 7. Remove columns that are not features 
+# (except icustay_id and patient_id that are needed to build the table with labels)
 
 # In[11]:
 
@@ -470,7 +494,10 @@ merged_df.to_csv('creatinine_measurements_merged.csv')
 print(merged_df)
 
 
-# # Create labels for evolution of creatinine
+# ## 8. Create labels for evolution of creatinine
+# - The models would be used around 6a.m., when the team for the day begins to work 
+# - The prediction would concern the values of creatinine the next day (how it will have evolved after 20-24 hours)
+# - Therefore, we take into account only measurements of creatinine performed between midnight and 5am, and consider the "next day" is "next day between midnight and 5am"
 
 # In[13]:
 

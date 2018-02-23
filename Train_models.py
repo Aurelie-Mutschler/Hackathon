@@ -16,11 +16,19 @@ from pandas import pandas as pd
 
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split, GridSearchCV
+from sklearn.metrics import confusion_matrix, classification_report, accuracy_score
 
 from sklearn.multiclass import OneVsRestClassifier
 from sklearn.linear_model import SGDClassifier
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import make_scorer, confusion_matrix, classification_report
+
+from keras.models import Sequential
+from keras.layers import Dense, Dropout
+#from keras.callbacks import EarlyStopping
+#from keras.utils import np_utils
+from keras.wrappers.scikit_learn import KerasClassifier
+
+from xgboost import XGBClassifier
 
 #from sklearn.model_selection import cross_val_score, train_test_split, StratifiedShuffleSplit, GridSearchCV
 #from sklearn.metrics import fbeta_score, make_scorer, classification_report, confusion_matrix
@@ -34,7 +42,9 @@ from termcolor import colored, cprint
 
 
 # fix random seed for reproducibility
-seed = 42
+# THIS MUST BE CALLED IN EACH CELL WHERE RANDOM NUMBER GENERATORS ARE USED TO ENSURE REPRODUCIBLITY
+# Even in the case where we re-run a given cell
+seed=44
 np.random.seed(seed)
 
 
@@ -228,6 +238,10 @@ print()
 # In[9]:
 
 
+# THIS MUST BE CALLED IN EACH CELL WHERE RANDOM NUMBER GENERATORS ARE USED TO ENSURE REPRODUCIBLITY
+# Even in the case where we re-run a given cell
+np.random.seed(seed)
+
 # Separate label from features
 y = data['label']
 X = data.drop('label',axis=1)
@@ -256,8 +270,50 @@ print(y_test.value_counts(dropna=False))
 # - Create list of dict : [{**'model_name'**: sklearn_model, **'hyperparam_grid'**:{**'hyperparam_name'**:[list of possible values]}}]
 # - then just loop on this list to perform hyperparameter optim for each model
 
-# In[31]:
+# In[10]:
 
+
+# Define a functions for building keras models with different architectures
+
+def build_1Lperceptron(loss, optimizer, metrics, input_shape, hl_1_n_units, hl_1_activation,
+                      hl_1_dropout_rate, ol_n_units, ol_activation):
+    # Build the model architecture 
+    model = Sequential()
+    model.add(Dense(units=hl_1_n_units, activation=hl_1_activation,
+                    input_shape=input_shape))
+    if (hl_1_dropout_rate != 0.0): model.add(Dropout(hl_1_dropout_rate))
+    
+    model.add(Dense(units=ol_n_units, activation=ol_activation))
+              
+    # Compile the model using a loss function and an optimizer.
+    model.compile(loss = loss, optimizer=optimizer, metrics=metrics)
+    return model
+
+def build_2Lperceptron(loss, optimizer, metrics, input_shape, hl_1_n_units, hl_1_activation,
+                      hl_1_dropout_rate, hl_2_n_units, hl_2_activation,
+                      hl_2_dropout_rate, ol_n_units, ol_activation):
+    # Build the model architecture 
+    model = Sequential()
+    model.add(Dense(units=hl_1_n_units, activation=hl_1_activation,
+                    input_shape=input_shape))
+    if (hl_1_dropout_rate != 0.0): model.add(Dropout(hl_1_dropout_rate))
+    
+    model.add(Dense(units=hl_2_n_units, activation=hl_2_activation))
+    if (hl_2_dropout_rate != 0.0): model.add(Dropout(hl_2_dropout_rate))
+                 
+    model.add(Dense(units=ol_n_units, activation=ol_activation))
+              
+    # Compile the model using a loss function and an optimizer.
+    model.compile(loss = loss, optimizer=optimizer, metrics=metrics)
+    return model
+
+
+# In[11]:
+
+
+# THIS MUST BE CALLED IN EACH CELL WHERE RANDOM NUMBER GENERATORS ARE USED TO ENSURE REPRODUCIBLITY
+# Even in the case where we re-run a given cell
+np.random.seed(seed)
 
 # Classifiers and their respective grids for hyperparameter tuning should be specified here :
 models = {
@@ -268,29 +324,67 @@ models = {
             'estimator__alpha': [0.000001,0.000003,0.00001,0.00003,0.0001,0.0003,0.001, 0.003, 0.1, 0.3, 1.0]   
         }
     },
-    'logistic_regression': {
+    'logreg': {
         'classifier': OneVsRestClassifier(SGDClassifier(loss='log', penalty='l2', learning_rate='optimal', 
                                                         class_weight='balanced'), n_jobs=-1),
         'search_grid': {
             'estimator__alpha': [0.000001,0.000003,0.00001,0.00003,0.0001,0.0003,0.001, 0.003, 0.1, 0.3, 1.0]
         }
     },
-    'logistic_regression_elasticnet': {
+    'logreg_elasticnet': {
         'classifier': OneVsRestClassifier(SGDClassifier(loss='log', penalty='elasticnet', learning_rate='optimal',
                                                         class_weight='balanced'), n_jobs=-1),
         'search_grid': {
             'estimator__alpha': [0.000001,0.000003,0.00001,0.00005,0.0001,0.0005,0.001],
             'estimator__l1_ratio': [0.15,0.3,0.6,1.0]
         }
-    },
-    'random_forest': {
-        'classifier': RandomForestClassifier(n_estimators=10, max_depth=None),
-        'search_grid': {
-            'criterion': ['gini','entropy'],
-            'n_estimators': [3,10,30,100,300,500,1000],
-            'max_depth': [3,5,10,20]
-        }
     }
+#    'xgboost': {
+#        'classifier': XGBClassifier(eval_metric='mlogloss', num_class= 3, objective= 'multi:softmax', class_weight='balanced'),
+#        'search_grid': {
+#            'learning_rate': [0.003,0.01,0.03,0.1,0.3,1.0,3.0],
+#            'min_child_weight': [0.1,0.3,1,3],
+#            'max_depth': [3,6,8,10,12]
+#        }
+#    },
+#        'perceptron_1hl': {
+#        'classifier': KerasClassifier(build_fn=build_1Lperceptron, epochs=10,batch_size=10),
+#        'search_grid': {
+#            'loss': ['categorical_crossentropy'],
+#            'optimizer': ['adadelta'],
+#            'metrics':[['accuracy']],
+#            'input_shape': [(X_hyperopt.shape[1],)],
+#            'hl_1_n_units': [10,20,30,40],
+#            'hl_1_activation': ['relu'],
+#            'hl_1_dropout_rate': [0.0,0.1,0.3,0.5],
+#            'ol_n_units': [3],
+#            'ol_activation': ['softmax']
+#        }
+#    },
+#    'perceptron_2hl': {
+#        'classifier': KerasClassifier(build_fn=build_2Lperceptron, epochs=10,batch_size=10),
+#        'search_grid': {
+#            'loss': ['categorical_crossentropy'],
+#            'optimizer': ['adadelta'],
+#            'metrics':[['accuracy']],
+#            'input_shape': [(X_hyperopt.shape[1],)],
+#            'hl_1_n_units': [10,20,40],
+#            'hl_1_activation': ['relu'],
+#           'hl_1_dropout_rate': [0.0,0.2],
+#            'hl_2_n_units': [10,20,40],
+#            'hl_2_activation': ['relu'],
+#            'hl_2_dropout_rate': [0.0,0.2],
+#            'ol_n_units': [3],
+#            'ol_activation': ['softmax']
+#        }
+#    }
+#    'random_forest': {
+#        'classifier': RandomForestClassifier(n_estimators=10, max_depth=None),
+#        'search_grid': {
+#            'n_estimators': [int(x) for x in np.linspace(200,2000,10)],
+#            'max_depth': np.append([int(x) for x in np.linspace(10,100,10)], None)
+#        }
+#    }
 }
 
 
@@ -298,10 +392,10 @@ models = {
 # /!\ this is time-consuming, pay attention to save the intermediate results of the grid search in a file
 # - in the end, create a list containing the best classifier obtained for each model : [sklearn_model(best hyperparams), kerasclassifier(best_hyperparams),...]
 
-# In[32]:
+# In[12]:
 
 
-# Create custom performance metrics that will be used for hyperparameter optimization
+# Create custom performance metrics that will be used for comparing performances accross different models
 def sensitivity_increase(y,y_pred):
     conf_mat = confusion_matrix(y, y_pred)
     return conf_mat[0,0]/(conf_mat[0,0] + conf_mat[0,1] + conf_mat[0,2])
@@ -316,13 +410,18 @@ def specificity_decrease(y,y_pred):
 # /!\ This is doable only with sklearn 0.19 (current stable release: 0.18)
 # For now we use only sensitivity_increase for hyperparameter optimization
 scores = {
-    'sensitivity_increase': sensitivity_increase, #make_scorer(sensitivity_increase),
-    'specificity_decrease': specificity_decrease#make_scorer(specificity_decrease)
+    'accuracy': accuracy_score,
+    'sensitivity_increase': sensitivity_increase, 
+    'specificity_decrease': specificity_decrease
 }
 
 
-# In[33]:
+# In[13]:
 
+
+# THIS MUST BE CALLED IN EACH CELL WHERE RANDOM NUMBER GENERATORS ARE USED TO ENSURE REPRODUCIBLITY
+# Even in the case where we re-run a given cell
+np.random.seed(seed)
 
 # Loop over each model and perform grid search to tune its hyperparameters
 for i in models.keys():
@@ -331,7 +430,8 @@ for i in models.keys():
     params = models[i]['search_grid']
     
     #gridsearch = GridSearchCV(estimator=clf, param_grid=params, refit=True, verbose=1)
-    gridsearch = GridSearchCV(estimator=clf, param_grid=params, scoring=make_scorer(sensitivity_increase), refit=True, verbose=1)
+    gridsearch = GridSearchCV(estimator=clf, param_grid=params, scoring='accuracy', 
+                              refit=True, verbose=1)
     gridsearch.fit(X_hyperopt,y_hyperopt)
     models[i]['best_classifier'] = gridsearch.best_estimator_
     models[i]['best_scores'] = gridsearch.best_score_
@@ -343,8 +443,12 @@ for i in models.keys():
 # ## 3. Comparison of performances
 # Re-train models with their respective optimal sets of hyperparameters, on ALL the "hyperopt" dataset. Then assess and compare performances on the "compare" dataset
 
-# In[29]:
+# In[14]:
 
+
+# THIS MUST BE CALLED IN EACH CELL WHERE RANDOM NUMBER GENERATORS ARE USED TO ENSURE REPRODUCIBLITY
+# Even in the case where we re-run a given cell
+np.random.seed(seed)
 
 compare_performances = pd.DataFrame(index=list(models.keys()),columns=list(scores.keys()))
 for k in list(models.keys()):
@@ -353,7 +457,7 @@ for k in list(models.keys()):
     # NB: this is not mandatory as GridSearchCV(refit=True) does it.
     clf.fit(X_hyperopt,y_hyperopt)
     # Assess performances on "compare" dataset
-    y_pred = clf.predict(X_compare)   
+    y_pred = clf.predict(X_compare)
     for m in list(scores.keys()):
         compare_performances.loc[k,m] = scores[m](y_compare, y_pred)
 print(compare_performances)
@@ -363,8 +467,12 @@ print(compare_performances)
 # Re-train models on ALL the examples from "hyperopt" and "compare", then assess performances on the "test" dataset.
 # NB : if there's a significant discrepancy in performances between "compare" and "test" datasets, we may be overfitting or suffering from bias. The generalized performances are the ones obtained on the "test" set.
 
-# In[30]:
+# In[15]:
 
+
+# THIS MUST BE CALLED IN EACH CELL WHERE RANDOM NUMBER GENERATORS ARE USED TO ENSURE REPRODUCIBLITY
+# Even in the case where we re-run a given cell
+np.random.seed(seed)
 
 test_performances = pd.DataFrame(index=list(models.keys()),columns=list(scores.keys()))
 for k in list(models.keys()):
@@ -381,12 +489,6 @@ print(compare_performances)
 print()
 print('Performances on "test" set (= generalized) : ')
 print(test_performances)
-
-
-# In[ ]:
-
-
-print(X_test)
 
 
 # ## 5. Alternative to be tested : Don't drop any missing values from the dataset but rather train an XGBoost classifier that handles missing values
