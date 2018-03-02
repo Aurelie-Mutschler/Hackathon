@@ -108,3 +108,4 @@ Below are listed some hints to improve our results :
 - **Use imputation methods to replace missing values**
 - **Use data augmentation to get a balanced dataset**
 - **Try alternatives to the mean accuracy as metric to optimize the models' parameters**
+- **Meet, code and have fun :)**
