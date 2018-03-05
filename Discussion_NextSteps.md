@@ -102,8 +102,10 @@ Below are listed some hints to improve our results :
 - **Check the building of the dataset** :
   - Check the SQL queries
   - Understand why we get a lot less creatinine measurements in the *chartevents* table compared to the *labevents* table
-  - Understand why there are so many missing values, and why some features are empty
-- **Use imputation methods to replace missing values**
+  - Understand why there are so many missing values, and why some features are empty
+- **make sure that features containing creatinine values of last days are not dropped**
 - **Retrieve more features**
+- **Use imputation methods to replace missing values**
 - **Use data augmentation to get a balanced dataset**
 - **Try alternatives to the mean accuracy as metric to optimize the models' parameters**
+- **Meet, code and have fun :)**
