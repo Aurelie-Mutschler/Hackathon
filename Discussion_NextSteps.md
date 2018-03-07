@@ -60,7 +60,7 @@ List of features after dropping NAs :
 | logreg_elasticnet | logistic regression with elasticnet regularizer                                                                                                                         |                     35                    |                21850               |
 | XGBoost           | Gradient boosted CARTs (Classification And Regression Trees)                                                                                                            |                     35                    |                21850               |
 | perceptron_1hl    | Multilayer perceptron with 1 hidden layer                                                                                                                               |                     35                    |                21850               |
-| perceptron_2hl    | Multilayer perceptron with 1 hidden layer                                                                                                                               |                     35                    |                21850               |
+| perceptron_2hl    | Multilayer perceptron with 2 hidden layers                                                                                                                               |                     35                    |                21850               |
 | XGBoost_NAs       | Gradient boosted CARTs with internal handling of missing values. This last model allows to keep missing values in the dataset and hence keep all features and examples. |                     66                    |                35081               |
 
 
